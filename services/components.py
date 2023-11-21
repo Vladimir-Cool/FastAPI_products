@@ -1,30 +1,26 @@
-from models.component import Component
-from schemas.components import ComponentsSchemas
+from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-def create_components(data: ComponentsSchemas, db: Session):
-    new_component = Component(name=data.name,
-                              quantity=data.quantity,
-                              price=data.price,
-                            )
-    try:
-        db.add(new_component)
-        db.commit()
-        db.refresh(new_component)
-    except Exception as e:
-        print(e)
+from schemas.components import ComponentsSchemas
+from models.component import Component
 
+
+async def create_components(data: ComponentsSchemas, session: AsyncSession):
+    new_component = Component(
+        name=data.name,
+        quantity=data.quantity,
+        price=data.price,
+    )
+
+    session.add(new_component)
+    await session.commit()
+    # await session.refresh(new_component)
     return new_component
 
 
-def get_components(id: int, db: Session):
-    try:
-        component = db.query(Component).filter(Component.id == id).first()
-    except Exception as e:
-        component = []
-        print(e)
-
-    return component
+async def get_component(id: int, session: AsyncSession):
+    return await session.get(Component, id)
 
 
 def update_components(data: ComponentsSchemas, db: Session, id: int):
