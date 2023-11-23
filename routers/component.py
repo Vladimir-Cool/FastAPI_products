@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +18,11 @@ async def create(
     return await components.create_components(data, db)
 
 
+@router.get("/", tags=["components"])
+async def gets(session: AsyncSession = Depends(db_helper.scope_session_dependebcy)):
+    return await components.get_components(session)
+
+
 @router.get("/{id}", tags=["components"])
 async def get(
     id: int = None,
@@ -29,15 +34,15 @@ async def get(
 @router.put("/{id}", tags=["components"])
 async def update(
     data: ComponentsSchemas = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(db_helper.scope_session_dependebcy),
     id: int = None,
 ):
-    return components.update_components(data, db, id)
+    return await components.update_components(data, db, id)
 
 
-@router.delete("/{id}", tags=["components"])
+@router.delete("/{id}", tags=["components"], status_code=status.HTTP_204_NO_CONTENT)
 async def delete(
     id: int = None,
-    db: Session = Depends(get_db),
+    session: AsyncSession = Depends(db_helper.scope_session_dependebcy),
 ):
-    return components.remove_components(id, db)
+    return await components.remove_components(id, session)

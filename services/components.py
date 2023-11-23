@@ -19,32 +19,35 @@ async def create_components(data: ComponentsSchemas, session: AsyncSession):
     return new_component
 
 
-async def get_component(id: int, session: AsyncSession):
-    return await session.get(Component, id)
+async def get_components(session: AsyncSession) -> list[Component]:
+    stmt = select(Component).order_by(Component.id)
+    result_query = await session.execute(stmt)
+    return list(result_query.scalars().all())
 
 
-def update_components(data: ComponentsSchemas, db: Session, id: int):
-    try:
-        component = db.query(Component).filter(Component.id == id).first()
-        component.name = data.name
-        component.quantity = data.quantity
-        component.price = data.price
+async def get_component(id: int, session: AsyncSession) -> Component:
+    stmt = select(Component).where(Component.id == id)
+    result_query = await session.execute(stmt)
+    return result_query.scalar()
 
-        db.add(component)
-        db.commit()
-        db.refresh(component)
-    except Exception as e:
-        component = []
-        print(e)
-
-    return component
+    # return await session.get(Component, id)
 
 
-def remove_components(id: int, db: Session):
-    component = db.query(Component).filter(Component.id == id).delete()
-    try:
-        db.commit()
-    except Exception as e:
-        print(e)
+async def update_components(data: ComponentsSchemas, session: AsyncSession, id: int):
+    component = await get_component(id, session)
+    component.name = data.name
+    component.quantity = data.quantity
+    component.price = data.price
+
+    session.add(component)
+    await session.commit()
+    # session.refresh(component)
 
     return component
+
+
+async def remove_components(id: int, session: AsyncSession):
+    component = await get_component(id, session)
+
+    await session.delete(component)
+    await session.commit()
