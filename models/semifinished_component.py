@@ -9,14 +9,11 @@ if TYPE_CHECKING:
     from .semifinished import SemiFinished
     from .component import Component
 
+
 # Связь Полуфабрикаты - Компоненты
 class SemiFinishedComponent(Base):
-    __table_arg__ = (
-        UniqueConstraint(
-            "semifinished_id",
-            "component_id",
-            name="Index_sem_com"
-        )
+    __table_arg__ = UniqueConstraint(
+        "semifinished_id", "component_id", name="Index_sem_com"
     )
 
     semifinished_id: Mapped[int] = mapped_column(ForeignKey("semifinished.id"))
@@ -25,4 +22,3 @@ class SemiFinishedComponent(Base):
 
     component: Mapped["Component"] = relationship(back_populates="semifinished_list")
     semifinished: Mapped["SemiFinished"] = relationship(back_populates="component_list")
-

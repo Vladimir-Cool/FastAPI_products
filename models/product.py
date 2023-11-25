@@ -18,18 +18,36 @@ class Product(Base):
     name: Mapped[str]
     quantity: Mapped[int]
     price: Mapped[int]
-    # product_id_list: Mapped[int] = mapped_column(ForeignKey("product.id"), nullable=True)
+    # parent_product: Mapped[int] = mapped_column(nullable=True)
+
+    component_list: Mapped[list["ProductComponent"]] = relationship(
+        back_populates="product",
+    )
+    semifinished_list: Mapped[list["ProductSemiFinished"]] = relationship(
+        back_populates="product"
+    )
+
+    # Сквозная связь самого на себя работает, но как достать count из таблицы асоцциаций???
+    parent_product: Mapped["Product"] = relationship(
+        "Product",
+        secondary="productproduct",
+        primaryjoin="Product.id==ProductProduct.child_product_id",
+        secondaryjoin="Product.id==ProductProduct.parent_product_id",
+        back_populates="product_list",
+    )
+    product_list: Mapped[list["Product"]] = relationship(
+        "Product",
+        secondary="productproduct",
+        primaryjoin="Product.id==ProductProduct.parent_product_id",
+        secondaryjoin="Product.id==ProductProduct.child_product_id",
+        back_populates="parent_product",
+    )
+
+    # childe_product_list: Mapped[list["ProductProduct"]] = relationship(
+    #     "ProductProduct",
+    #     back_populates="parent_product",
+    #     foreign_keys="ProductProduct.parent_product_id",
+    # )
 
 
-    component_list: Mapped[list["ProductComponent"]] = relationship(back_populates="product",)
-    semifinished_list: Mapped[list["ProductSemiFinished"]] = relationship(back_populates="product")
-
-# ????
-#     product_list: Mapped[list["ProductProduct"]] = relationship(backref=backref("parent_product"),
-#                                                          foreign_keys="Product.product_id_list",
-#                                                          remote_side="Product.id")
-
-
-    # parent_product: Mapped["Product"] = relationship(back_populates="product_list")
-
-
+# parent_product: Mapped["Product"] = relationship(back_populates="product_list")

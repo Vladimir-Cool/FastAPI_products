@@ -12,19 +12,23 @@ if TYPE_CHECKING:
 
 # Связь Товары - Товар
 class ProductProduct(Base):
-    __table_arg__ = (
-        UniqueConstraint(
-            "child_product_id",
-            "parent_product_id",
-            name="Index_prod_prod"
-        )
+    __table_arg__ = UniqueConstraint(
+        "child_product_id",
+        "parent_product_id",
+        name="Index_prod_prod",
     )
 
     parent_product_id: Mapped[int] = mapped_column(ForeignKey("product.id"))
     child_product_id: Mapped[int] = mapped_column(ForeignKey("product.id"))
-    child_product_count: Mapped[int]
+    child_product_count: Mapped[int] = mapped_column(default=1, server_default="1")
 
-    parent_product: Mapped["Product"] = relationship(backref=backref("product_list"), foreign_keys="ProductProduct.parent_product_id")
-    child_product: Mapped["Product"] = relationship(foreign_keys="ProductProduct.child_product_id")
-
-
+    # parent_product: Mapped["Product"] = relationship(
+    #     back_populates="childe_product_list",
+    #     foreign_keys="ProductProduct.parent_product_id",
+    #     # remote_side="Product.id",
+    # )
+    # child_product: Mapped["Product"] = relationship(
+    #     back_populates="parent",
+    #     foreign_keys="ProductProduct.child_product_id",
+    #     # remote_side="",
+    # )
