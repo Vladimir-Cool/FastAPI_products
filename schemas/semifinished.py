@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 
 class ComponentDict(BaseModel):
-    component: int
+    component_id: int
     count: int = Field(ge=0)
 
 
@@ -12,4 +12,3 @@ class SemifinishedSchemas(BaseModel):
     quantity: int = Field(ge=0)
     price: int = Field(ge=0)
     components: List[ComponentDict]
-

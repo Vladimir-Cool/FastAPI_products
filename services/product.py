@@ -24,7 +24,8 @@ def create(data: ProductSchemas, db: Session):
 
             new_product.component_list.append(
                 ProductComponent(
-                    component=component, component_count=asoc_component.count
+                    component=component,
+                    component_count=asoc_component.count,
                 )
             )
 
@@ -49,8 +50,15 @@ def create(data: ProductSchemas, db: Session):
 
             product = db.execute(stmt).scalar()  # type: Product
 
-            new_product.product_list.append(product)
-
+            new_product.product_list.append(
+                ProductProduct(
+                    child_product=product,
+                    child_product_id=product.id,
+                    child_product_count=asoc_product.count,
+                )
+            )
+    print(new_product.product_list)
+    print("Commit")
     db.add(new_product)
     db.commit()
     db.refresh(new_product)
@@ -73,7 +81,12 @@ def get(id: int, db: Session):
             .options(load_only(ProductSemiFinished.semifinished_count))
             .joinedload(ProductSemiFinished.semifinished)
         )
-        .options(selectinload(Product.product_list))
+        # .options(selectinload(Product.product_list))
+        .options(
+            selectinload(Product.product_list)
+            .options(load_only(ProductProduct.child_product_count))
+            .joinedload(ProductProduct.child_product)
+        )
     )
 
     return db.execute(stmt).scalar()
@@ -100,9 +113,14 @@ def get_with_semi_finished_components(id: int, db: Session):
                 .joinedload(SemiFinishedComponent.component)
             )
         )
+        .options(
+            selectinload(Product.product_list)
+            .options(load_only(ProductProduct.child_product_count))
+            .joinedload(ProductProduct.child_product)
+        )
     )
 
-    return db.execute(stmt2).scalar()
+    return db.execute(stmt2).scalars().all()
 
 
 def update(data: ProductSchemas, id: int, db: Session):

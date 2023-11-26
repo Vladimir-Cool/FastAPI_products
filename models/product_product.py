@@ -22,13 +22,13 @@ class ProductProduct(Base):
     child_product_id: Mapped[int] = mapped_column(ForeignKey("product.id"))
     child_product_count: Mapped[int] = mapped_column(default=1, server_default="1")
 
-    # parent_product: Mapped["Product"] = relationship(
-    #     back_populates="childe_product_list",
-    #     foreign_keys="ProductProduct.parent_product_id",
-    #     # remote_side="Product.id",
-    # )
-    # child_product: Mapped["Product"] = relationship(
-    #     back_populates="parent",
-    #     foreign_keys="ProductProduct.child_product_id",
-    #     # remote_side="",
-    # )
+    parent_product: Mapped["Product"] = relationship(
+        "Product",
+        back_populates="product_list",
+        foreign_keys="ProductProduct.parent_product_id",
+    )
+    child_product: Mapped["Product"] = relationship(
+        "Product",
+        back_populates="parent",
+        foreign_keys="ProductProduct.child_product_id",
+    )

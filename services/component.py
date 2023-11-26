@@ -6,7 +6,9 @@ from schemas.components import ComponentsSchemas
 from models.component import Component
 
 
-async def create_components(data: ComponentsSchemas, session: AsyncSession):
+async def create_components(
+    data: ComponentsSchemas, session: AsyncSession
+) -> Component:
     new_component = Component(
         name=data.name,
         quantity=data.quantity,
@@ -33,7 +35,11 @@ async def get_component(id: int, session: AsyncSession) -> Component:
     # return await session.get(Component, id)
 
 
-async def update_components(data: ComponentsSchemas, session: AsyncSession, id: int):
+async def update_components(
+    data: ComponentsSchemas,
+    session: AsyncSession,
+    id: int,
+) -> Component:
     component = await get_component(id, session)
     component.name = data.name
     component.quantity = data.quantity
@@ -46,7 +52,7 @@ async def update_components(data: ComponentsSchemas, session: AsyncSession, id: 
     return component
 
 
-async def remove_components(id: int, session: AsyncSession):
+async def remove_components(id: int, session: AsyncSession) -> None:
     component = await get_component(id, session)
 
     await session.delete(component)
