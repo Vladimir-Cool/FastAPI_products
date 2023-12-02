@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.bdconnect import get_db, db_helper
@@ -18,20 +18,31 @@ async def create(
 
 
 @router.get("/", tags=["semifinished"])
+async def gets(
+    session: AsyncSession = Depends(db_helper.scope_session_dependebcy),
+):
+    return await semifinished.get_semifinisheds(session)
+
+
+@router.get("/{id}", tags=["semifinished"])
 async def get(
     id: int = None,
     session: AsyncSession = Depends(db_helper.scope_session_dependebcy),
 ):
-    return await semifinished.get(id, session)
+    return await semifinished.get_semifinished(id, session)
 
 
-@router.put("/", tags=["semifinished"])
+@router.put("/{id}", tags=["semifinished"])
 async def update(
-    data: SemifinishedSchemas = None, id: int = None, db: Session = Depends(get_db)
+    data: SemifinishedSchemas = None,
+    id: int = None,
+    session: AsyncSession = Depends(db_helper.scope_session_dependebcy),
 ):
-    return semifinished.update(data, id, db)
+    return await semifinished.update(data, id, session)
 
 
-@router.delete("/", tags=["semifinished"])
-async def delete(id: int = None, db: Session = Depends(get_db)):
-    return semifinished.delete(id, db)
+@router.delete("/{id}", tags=["semifinished"], status_code=status.HTTP_204_NO_CONTENT)
+async def delete(
+    id: int = None, session: AsyncSession = Depends(db_helper.scope_session_dependebcy)
+):
+    return await semifinished.delete(id, session)
