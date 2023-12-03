@@ -1,42 +1,65 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from utils.bdconnect import get_db
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from utils.bdconnect import db_helper
 
 from services import product
 from schemas.product import ProductSchemas
 
 router = APIRouter()
 
+
 @router.post("/", tags=["product"])
-async def create(data: ProductSchemas = None, db: Session = Depends(get_db)):
-    return product.create(data, db)
+async def create(
+    data: ProductSchemas = None,
+    session: AsyncSession = Depends(db_helper.scope_session_dependebcy),
+):
+    """Создаем новый продукт с указанием списков компонентов, полуфабрикатов и других товаров"""
+    return await product.create(data, session)
 
 
 @router.get("/", tags=["product"])
-async def get(id: int = None, db: Session = Depends(get_db)):
-    """ Вернет продукт и его компоненты и полуфабрикаты"""
-    return product.get(id, db)
+async def gets(session: AsyncSession = Depends(db_helper.scope_session_dependebcy)):
+    """Возвращает все товары со списками компонентов, полуфабрикатов и других товаров"""
+    return await product.get_products(session)
 
 
-@router.get("/sem_comp", tags=["product"])
-async def get_with_semi_finished_components(id: int = None, db: Session = Depends(get_db)):
-    """ Вернет продукт и его компоненты и полуфабрикаты
-        + компоненты полуфабрикатов"""
-    return product.get_with_semi_finished_components(id, db)
+@router.get("/{id}", tags=["product"])
+async def get(
+    id: int = None,
+    session: AsyncSession = Depends(db_helper.scope_session_dependebcy),
+):
+    """Возвращает товар по ID вместе со списками компонентов, полуфабрикатов и других товаров"""
+    return await product.get_product(id, session)
 
 
-@router.get("/com", tags=["product"])
-async def get_product_all_component(id: int = None, db: Session = Depends(get_db)):
-    """ Пока что возвразает id, count всех компонентов Товара"""
-    return product.get_product_with_all_component(id, db)
+@router.get("/sem_comp/{id}", tags=["product"])
+async def get_with_semi_finished_components(
+    id: int = None, session: AsyncSession = Depends(db_helper.scope_session_dependebcy)
+):
+    """Вернет продукт и его компоненты и полуфабрикаты и компоненты полуфабрикатов"""
+    return await product.get_with_semi_finished_components(id, session)
 
 
-@router.put("/", tags=["product"])
-async def update(data: ProductSchemas = None, id: int = None, db: Session = Depends(get_db)):
-    return product.update(data, id, db)
+@router.get("/com/{id}", tags=["product"])
+async def get_product_all_component(
+    id: int = None, session: AsyncSession = Depends(db_helper.scope_session_dependebcy)
+):
+    """Возвращает список всех"""
+    return await product.get_product_with_all_component(id, session)
 
 
-@router.delete("/", tags=["product"])
-async def delete(id: int = None, db: Session = Depends(get_db)):
-    return product.delete(id, db)
+@router.put("/{id}", tags=["product"])
+async def update(
+    data: ProductSchemas = None,
+    id: int = None,
+    session: AsyncSession = Depends(db_helper.scope_session_dependebcy),
+):
+    return await product.update(data, id, session)
 
+
+@router.delete("/{id}", tags=["product"], status_code=status.HTTP_204_NO_CONTENT)
+async def delete(
+    id: int = None, session: AsyncSession = Depends(db_helper.scope_session_dependebcy)
+):
+    return await product.delete(id, session)

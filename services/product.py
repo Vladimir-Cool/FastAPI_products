@@ -1,5 +1,6 @@
+from sqlalchemy import select, Result
 from sqlalchemy.orm import Session, selectinload, load_only, joinedload
-from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.product import Product
 from models.semifinished import SemiFinished
@@ -11,16 +12,20 @@ from models.product_product import ProductProduct
 from schemas.product import ProductSchemas
 
 
-def create(data: ProductSchemas, db: Session):
+async def create(data: ProductSchemas, session: AsyncSession):
     """Создает новый Товар и связь с полуфабрикатами и компонентами"""
+    new_product = Product(
+        name=data.name,
+        quantity=data.quantity,
+        price=data.price,
+    )
 
-    new_product = Product(name=data.name, quantity=data.quantity, price=data.price)
-
-    if data.components:
-        for asoc_component in data.components:
+    if data.component_list:
+        for asoc_component in data.component_list:
             stmt = select(Component).where(Component.id == asoc_component.component_id)
 
-            component = db.execute(stmt).scalar()  # type: Component
+            result_query = await session.execute(stmt)  # type: Result
+            component = result_query.scalar()  # type: Component
 
             new_product.component_list.append(
                 ProductComponent(
@@ -29,13 +34,13 @@ def create(data: ProductSchemas, db: Session):
                 )
             )
 
-    if data.semifinisheds:
-        for asoc_semifinished in data.semifinisheds:
+    if data.semifinished_list:
+        for asoc_semifinished in data.semifinished_list:
             stmt = select(SemiFinished).where(
                 SemiFinished.id == asoc_semifinished.semifinished_id
             )
-
-            semifinished = db.execute(stmt).scalar()  # type: SemiFinished
+            result_query = await session.execute(stmt)  # type: Result
+            semifinished = result_query.scalar()  # type: SemiFinished
 
             new_product.semifinished_list.append(
                 ProductSemiFinished(
@@ -44,11 +49,12 @@ def create(data: ProductSchemas, db: Session):
                 )
             )
 
-    if data.products:
-        for asoc_product in data.products:
+    if data.product_list:
+        for asoc_product in data.product_list:
             stmt = select(Product).where(Product.id == asoc_product.product_id)
 
-            product = db.execute(stmt).scalar()  # type: Product
+            result_query = await session.execute(stmt)  # type: Result
+            product = result_query.scalar()  # type: Product
 
             new_product.product_list.append(
                 ProductProduct(
@@ -57,16 +63,16 @@ def create(data: ProductSchemas, db: Session):
                     child_product_count=asoc_product.count,
                 )
             )
-    print(new_product.product_list)
-    print("Commit")
-    db.add(new_product)
-    db.commit()
-    db.refresh(new_product)
+
+    session.add(new_product)
+    await session.commit()
+    """ Та же проблема, не получаеться без рефреша вернуть объект, но после рефреша теряются все зависимости :/ """
+    await session.refresh(new_product)
 
     return new_product
 
 
-def get(id: int, db: Session):
+async def get_product(id: int, session: AsyncSession):
     """Возвращает товар и списки связанных полуфабрикатов и компонентов"""
     stmt = (
         select(Product)
@@ -81,18 +87,40 @@ def get(id: int, db: Session):
             .options(load_only(ProductSemiFinished.semifinished_count))
             .joinedload(ProductSemiFinished.semifinished)
         )
-        # .options(selectinload(Product.product_list))
         .options(
             selectinload(Product.product_list)
             .options(load_only(ProductProduct.child_product_count))
             .joinedload(ProductProduct.child_product)
         )
     )
+    result_query = await session.execute(stmt)
+    return result_query.scalar()
 
-    return db.execute(stmt).scalar()
+
+async def get_products(session: AsyncSession):
+    stmt = (
+        select(Product)
+        .options(
+            selectinload(Product.component_list)
+            .options(load_only(ProductComponent.component_count))
+            .joinedload(ProductComponent.component)
+        )
+        .options(
+            selectinload(Product.semifinished_list)
+            .options(load_only(ProductSemiFinished.semifinished_count))
+            .joinedload(ProductSemiFinished.semifinished)
+        )
+        .options(
+            selectinload(Product.product_list)
+            .options(load_only(ProductProduct.child_product_count))
+            .joinedload(ProductProduct.child_product)
+        )
+    )
+    result_query = await session.execute(stmt)
+    return result_query.scalars().all()
 
 
-def get_with_semi_finished_components(id: int, db: Session):
+async def get_with_semi_finished_components(id: int, session: AsyncSession):
     """Возвращает товар и списки связанных полуфабрикатов и компонентов
     и компоненты каждого полуфабриката"""
     stmt2 = (
@@ -119,78 +147,59 @@ def get_with_semi_finished_components(id: int, db: Session):
             .joinedload(ProductProduct.child_product)
         )
     )
+    result_query = await session.execute(stmt2)
 
-    return db.execute(stmt2).scalars().all()
+    return list(result_query.scalars().all())
 
 
-def update(data: ProductSchemas, id: int, db: Session):
+async def update(data: ProductSchemas, id: int, session: AsyncSession):
     """Обновляет информацию о товаре и связанных полуфабрикатах и компонентах"""
-    product = get(id, db)  # type: Product
+    product = await get_product(id, session)  # type: Product
 
     """ Если у товара были компоненту удаляем"""
     if product.component_list:
         for component in product.component_list:
-            db.delete(component)
+            await session.delete(component)
 
-    """ Код дублируется, надо вынести в отдельную функцию!!!"""
-    if data.components:
-        for asoc_component in data.components:
-            stmt = select(Component).where(Component.id == asoc_component.component_id)
-
-            component = db.execute(stmt).scalar()  # type: Component
-
-            product.component_list.append(
-                ProductComponent(
-                    component=component, component_count=asoc_component.count
-                )
-            )
-
-    """ Если у товара были полуфабрикаты удоляем"""
+    """ Если у товара были полуфабрикаты удаляем"""
     if product.semifinished_list:
         for semifinished in product.semifinished_list:
-            db.delete(semifinished)
+            await session.delete(semifinished)
 
-    """ Код дублируется, надо вынести в отдельную функцию!!!"""
-    if data.semifinisheds:
-        for asoc_semifinished in data.semifinisheds:
-            stmt = select(SemiFinished).where(
-                SemiFinished.id == asoc_semifinished.semifinished_id
-            )
+    """ Если у товара были товары удаляем"""
+    if product.product_list:
+        for product in product.product_list:
+            await session.delete(product)
 
-            semifinished = db.execute(stmt).scalar()  # type: SemiFinished
-
-            product.semifinished_list.append(
-                ProductSemiFinished(
-                    semifinished=semifinished,
-                    semifinished_count=asoc_semifinished.count,
-                )
-            )
-
-    db.commit()
-    db.refresh(product)
+    product = await create(data, session)
 
     return product
 
 
-def delete(id: int, db: Session):
+async def delete(id: int, session: AsyncSession):
     """Удаляет товар и все связи с полуфабрикатами и компонентами"""
-    product = get(id, db)  # type: Product
+    product = await get_product(id, session)  # type: Product
 
-    """ Если у товара были компоненту удаляем"""
-    if product.component_list:
-        for component in product.component_list:
-            db.delete(component)
-        db.commit()
+    if product:
+        """Если у товара были компоненту удаляем"""
+        if product.component_list:
+            for component in product.component_list:
+                await session.delete(component)
 
-    if product.semifinished_list:
-        for semifinished in product.semifinished_list:
-            db.delete(semifinished)
-        db.commit()
+        """ Если у товара были полуфабрикаты удаляем"""
+        if product.semifinished_list:
+            for semifinished in product.semifinished_list:
+                await session.delete(semifinished)
 
-    db.delete(product)
-    db.commit()
+        """ Если у товара были товары удаляем"""
+        if product.product_list:
+            for product in product.product_list:
+                await session.delete(product)
 
-    return product
+        await session.delete(product)
+        await session.commit()
+    else:
+        return None
 
 
 def get_component_count_by_prod(product: Product):
@@ -222,7 +231,7 @@ def get_component_count_by_prod(product: Product):
     return result_components
 
 
-def get_product_with_all_component(id: int, db: Session):
-    product = get_with_semi_finished_components(id, db)
+def get_product_with_all_component(id: int, session: AsyncSession):
+    product = get_with_semi_finished_components(id, session)
 
     return get_component_count_by_prod(product)

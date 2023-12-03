@@ -142,7 +142,10 @@ async def delete(id: int, session: AsyncSession):
         if semifinished.component_list:
             for association in semifinished.component_list:
                 await session.delete(association)
-        # Удаляем все связи с товарами
+
+        """ Удаляем все связи с товарами ------ 
+            !!! Тут надо вывести все товары которые используют этот полуфабрикат и ответ об ошибке
+            В общем тут надо оталкиваться от бизнес логики, пока что так"""
         if semifinished.product_list:
             for associaciot in semifinished.product_list:
                 await session.delete(associaciot)
